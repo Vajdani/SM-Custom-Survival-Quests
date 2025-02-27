@@ -16,6 +16,10 @@ function QuestManager:server_onCreate()
     end
 
     self.sv.customQuestData = sm.storage.load(sm.SURVIVALQUESTSMODUUID) or {}
+    for name, questSelf in pairs(self.sv.customQuestData) do
+        local quest = self.sv.saved.activeQuests[name]
+        _G[quest.className]["server_onCreate"](questSelf)
+    end
 end
 
 function QuestManager.sv_e_activateQuest( self, questName )
@@ -24,8 +28,8 @@ function QuestManager.sv_e_activateQuest( self, questName )
         if type(questUuid) == "string" then
             local questClass = _G[questUuid]
             self.sv.saved.activeQuests[questName] = questClass.new()
-            self.sv.customQuestData[questName] = questClass.server_onCreate()
-            sm.storage.save(sm.SURVIVALQUESTSMODUUID, self.sv.customQuestData)
+            self.sv.customQuestData[questName] = questClass.sv_new()
+            self:sv_CustomQuestSave()
         else
             self.sv.saved.activeQuests[questName] = sm.scriptableObject.createScriptableObject( questUuid )
         end
@@ -72,13 +76,75 @@ function QuestManager.sv_e_completeQuest( self, questName )
 end
 
 function QuestManager:sv_CustomQuestCallback(args)
-    local quest = self.sv.saved.activeQuests[args.questName]
-    _G[quest.className][args.callback](quest, args.params)
+    local name = args.questName
+    local quest = self.sv.saved.activeQuests[name]
+    if not quest then return end
+
+    _G[quest.className][args.callback](self.sv.customQuestData[name], args.params)
 end
+
+function QuestManager.sv_onEvent( self, event, params )
+	--print( "QuestManager - Event:", event, "params:", params )
+	--print( "Subscribers:", self.sv.eventSubs[event] )
+	if self.sv.eventSubs[event] ~= nil then
+		for _, subCallback in ipairs( self.sv.eventSubs[event] ) do
+			local sub = subCallback[1]
+			local callbackName = subCallback[2]
+			local data = { event = event, params = params }
+
+            local t = type( sub )
+            if t == "string" then
+                self:sv_CustomQuestCallback({ questName = sub, callback = callbackName, params = data })
+                return
+            end
+
+			if not sm.exists( sub ) then
+				sm.log.warning( "Tried to send callback to subscriber which does not exist: " .. tostring( sub ) )
+				return
+			end
+			if t == "Harvestable" then
+				sm.event.sendToHarvestable( sub, callbackName, data )
+			elseif t == "ScriptableObject" then
+				sm.event.sendToScriptableObject( sub, callbackName, data )
+			elseif t == "Character" then
+				sm.event.sendToCharacter( sub, callbackName, data )
+			elseif t == "Tool" then
+				sm.event.sendToTool( sub, callbackName, data )
+			else
+				sm.log.error( "Tried to send event to non-supported type in QuestCallbackHelper" )
+			end
+		end
+	end
+end
+
+function QuestManager:sv_CustomQuestSaveAndUpdate(args)
+    sm.storage.save(sm.SURVIVALQUESTSMODUUID, self.sv.customQuestData)
+    self:sv_CustomQuestClientDataUpdate(args)
+end
+
+function QuestManager:sv_CustomQuestSave()
+    sm.storage.save(sm.SURVIVALQUESTSMODUUID, self.sv.customQuestData)
+end
+
+function QuestManager:sv_CustomQuestClientDataUpdate(args)
+    self.network:sendToClients("cl_CustomQuestClientDataUpdate", args)
+end
+
+
 
 function QuestManager:cl_CustomQuestCallback(args)
     local quest = self.cl.activeQuests[args.questName]
+    if not quest then return end
+
     _G[quest.className][args.callback](quest, args.params)
+end
+
+function QuestManager:cl_CustomQuestClientDataUpdate(args)
+    local quest = self.cl.activeQuests[args.questName]
+    if not quest then return end
+
+    _G[quest.className]["client_onClientDataUpdate"](quest, args.data, args.channel)
+	self.cl.questTrackerDirty = true
 end
 
 function QuestManager.client_onClientDataUpdate( self, data )
@@ -107,14 +173,4 @@ end
 
 function SurvivalPlayer:sv_test()
     g_questManager.Sv_TryActivateQuest("quest_test")
-end
-
-oldInventoryChanges = oldInventoryChanges or SurvivalPlayer.server_onInventoryChanges
-function SurvivalPlayer:server_onInventoryChanges( inventory, changes )
-	--changes = { { uuid = Uuid, difference = integer, tool = Tool }, .. }
-    oldInventoryChanges(self, inventory, changes)
-
-    if changes.uuid == blk_scrapwood and changes.difference > 0 then
-        
-    end
 end
