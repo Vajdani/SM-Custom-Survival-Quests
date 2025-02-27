@@ -3,17 +3,7 @@ sm.log.warning("[SURVIVAL QUESTS] VANILLA OVERRIDE START")
 local questList = {
     { "quest_test", "QuestTest" }
 }
-
 local questScriptPath = "$CONTENT_"..sm.SURVIVALQUESTSMODUUID.."/Scripts/quests/%s.lua"
--- local customQuests = {}
--- for k, v in pairs(questList) do
---     local class = v[2]
---     dofile(questScriptPath:format(class))
---     customQuests[v[1]] = class
--- end
-
-QuestManager = QuestManager or {}
-
 
 oldQuestManagerServerCreate = oldQuestManagerServerCreate or QuestManager.server_onCreate
 function QuestManager:server_onCreate()
@@ -117,4 +107,14 @@ end
 
 function SurvivalPlayer:sv_test()
     g_questManager.Sv_TryActivateQuest("quest_test")
+end
+
+oldInventoryChanges = oldInventoryChanges or SurvivalPlayer.server_onInventoryChanges
+function SurvivalPlayer:server_onInventoryChanges( inventory, changes )
+	--changes = { { uuid = Uuid, difference = integer, tool = Tool }, .. }
+    oldInventoryChanges(self, inventory, changes)
+
+    if changes.uuid == blk_scrapwood and changes.difference > 0 then
+        
+    end
 end
