@@ -28,7 +28,11 @@ function QuestManager.sv_e_activateQuest( self, questName )
         if type(questUuid) == "string" then
             local questClass = _G[questUuid]
             self.sv.saved.activeQuests[questName] = questClass.new()
-            self.sv.customQuestData[questName] = questClass.sv_new()
+
+            local questSelf = questClass.sv_new()
+            questClass["server_onCreate"](questSelf)
+            self.sv.customQuestData[questName] = questSelf
+
             self:sv_CustomQuestSave()
         else
             self.sv.saved.activeQuests[questName] = sm.scriptableObject.createScriptableObject( questUuid )
