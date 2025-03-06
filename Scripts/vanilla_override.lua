@@ -17,8 +17,9 @@ function QuestManager:server_onCreate()
 
     self.sv.customQuestData = sm.storage.load(sm.SURVIVALQUESTSMODUUID) or {}
     for name, questSelf in pairs(self.sv.customQuestData) do
-        local quest = self.sv.saved.activeQuests[name]
-        _G[quest.className]["server_onCreate"](questSelf)
+        if self.sv.saved.activeQuests[name] then
+            _G[questSelf.className]["server_onCreate"](questSelf)
+        end
     end
 end
 
@@ -53,7 +54,10 @@ function QuestManager.sv_e_abandonQuest( self, questName )
         if self.sv.saved.activeQuests[questName].destroy then
             self.sv.saved.activeQuests[questName]:destroy()
         else
+            self:sv_CustomQuestCallback({ questName = questName, callback = "server_onDestroy" })
             self.network:sendToClients("cl_CustomQuestCallback", { questName = questName, callback = "client_onDestroy" })
+            self.sv.customQuestData[questName] = nil
+            self:sv_CustomQuestSave()
         end
 		self.sv.saved.activeQuests[questName] = nil
 		self.storage:save( self.sv.saved )
@@ -70,7 +74,10 @@ function QuestManager.sv_e_completeQuest( self, questName )
         if self.sv.saved.activeQuests[questName].destroy then
             self.sv.saved.activeQuests[questName]:destroy()
         else
+            self:sv_CustomQuestCallback({ questName = questName, callback = "server_onDestroy" })
             self.network:sendToClients("cl_CustomQuestCallback", { questName = questName, callback = "client_onDestroy" })
+            self.sv.customQuestData[questName] = nil
+            self:sv_CustomQuestSave()
         end
 		self.sv.saved.activeQuests[questName] = nil
 		self.storage:save( self.sv.saved )
@@ -120,6 +127,24 @@ function QuestManager.sv_onEvent( self, event, params )
 		end
 	end
 end
+
+if not tryGetQuestManagerServerUpdate then
+    oldQuestManagerServerUpdate = QuestManager.server_onFixedUpdate
+    tryGetQuestManagerServerUpdate = true
+end
+
+function QuestManager:server_onFixedUpdate(dt)
+    if oldQuestManagerServerUpdate then
+        oldQuestManagerServerUpdate(self, dt)
+    end
+
+    for name, questSelf in pairs(self.sv.customQuestData) do
+        if self.sv.saved.activeQuests[name] then
+            _G[questSelf.className]["server_onFixedUpdate"](questSelf, dt)
+        end
+    end
+end
+
 
 function QuestManager:sv_CustomQuestSaveAndUpdate(args)
     sm.storage.save(sm.SURVIVALQUESTSMODUUID, self.sv.customQuestData)

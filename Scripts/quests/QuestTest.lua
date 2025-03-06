@@ -36,6 +36,14 @@ function QuestTest:server_onCreate()
     sm.event.sendToScriptableObject(g_questManager.scriptableObject, "sv_CustomQuestClientDataUpdate", { questName = self.name, data = { stage = self.sv.stage } })
 end
 
+function QuestTest:server_onDestroy()
+    sm.log.warning("[SURVIVAL QUESTS] QUESTTEST SERVER_ONDESTROY")
+end
+
+function QuestTest:server_onFixedUpdate(dt)
+    sm.log.warning("[SURVIVAL QUESTS] QUESTTEST SERVER_ONFIXEDUPDATE")
+end
+
 function QuestTest:sv_onInventoryUpdate(args)
     sm.log.warning("[SURVIVAL QUESTS] QUESTTEST ONINVENTORYUPDATE")
 
