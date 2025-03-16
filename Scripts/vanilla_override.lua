@@ -18,7 +18,10 @@ function QuestManager:server_onCreate()
     self.sv.customQuestData = sm.storage.load(sm.SURVIVALQUESTSMODUUID) or {}
     for name, questSelf in pairs(self.sv.customQuestData) do
         if self.sv.saved.activeQuests[name] then
-            _G[questSelf.className]["server_onCreate"](questSelf)
+            local func = _G[questSelf.className]["server_onCreate"]
+            if func then
+                func(questSelf)
+            end
         end
     end
 end
@@ -31,7 +34,11 @@ function QuestManager.sv_e_activateQuest( self, questName )
             self.sv.saved.activeQuests[questName] = questClass.new()
 
             local questSelf = questClass.sv_new()
-            questClass["server_onCreate"](questSelf)
+            local func = questClass["server_onCreate"]
+            if func then
+                func(questSelf)
+            end
+
             self.sv.customQuestData[questName] = questSelf
 
             self:sv_CustomQuestSave()
@@ -140,7 +147,10 @@ function QuestManager:server_onFixedUpdate(dt)
 
     for name, questSelf in pairs(self.sv.customQuestData) do
         if self.sv.saved.activeQuests[name] then
-            _G[questSelf.className]["server_onFixedUpdate"](questSelf, dt)
+            local func = _G[questSelf.className]["server_onFixedUpdate"]
+            if func then
+                func(questSelf, dt)
+            end
         end
     end
 end
@@ -172,7 +182,10 @@ function QuestManager:cl_CustomQuestClientDataUpdate(args)
     local quest = self.cl.activeQuests[args.questName]
     if not quest then return end
 
-    _G[quest.className]["client_onClientDataUpdate"](quest, args.data, args.channel)
+    local func = _G[quest.className]["client_onClientDataUpdate"]
+    if func then
+        func(quest, args.data, args.channel)
+    end
 	self.cl.questTrackerDirty = true
 end
 

@@ -23,10 +23,6 @@ function QuestTest.sv_new()
     }
 end
 
-function QuestTest:destroy()
-    print("destroy quest")
-end
-
 
 
 function QuestTest:server_onCreate()
